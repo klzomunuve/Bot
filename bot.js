@@ -9,6 +9,7 @@ const {
 
 import P from "pino";
 import { Boom } from "@hapi/boom";
+import qrcode from 'qrcode-terminal';
 import { askChatGPT } from "./services/chatgpt.js";
 import { academyBot } from "./routes/academy.js";
 
@@ -19,21 +20,33 @@ export async function startBot() {
   const sock = makeWASocket({
     version,
     logger: P({ level: "silent" }),
-    printQRInTerminal: true,
     auth: state,
     browser: ["Alfred Bot", "Chrome", "1.0"]
   });
 
-  sock.ev.on("creds.update", saveCreds);
+  // ✅ Handle QR code + connection status
+  sock.ev.on('connection.update', (update) => {
+    const { connection, lastDisconnect, qr } = update;
 
-  // ✅ Show connected number
-  sock.ev.on('connection.update', ({ connection }) => {
+    if (qr) {
+      console.log('📸 Scan this QR to link your WhatsApp:');
+      qrcode.generate(qr, { small: true });
+    }
+
     if (connection === 'open') {
       console.log('✅ Connected as:', sock.user.id);
     }
+
+    if (connection === 'close') {
+      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
+      console.log('❌ Disconnected. Reconnecting:', shouldReconnect);
+      if (shouldReconnect) startBot();
+    }
   });
 
-  // 💬 On new message
+  sock.ev.on("creds.update", saveCreds);
+
+  // 💬 Message listener
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0];
     if (!msg.message || msg.key.fromMe) return;
@@ -44,25 +57,25 @@ export async function startBot() {
 
     console.log(`📩 Message from ${sender}: ${text}`);
 
-    // Simple auto-reply
+    // Simple reply
     if (text.toLowerCase() === "hi") {
       await sock.sendMessage(sender, { text: "Hello! 👋 I'm Alfred Bot. How can I help you today?" });
     }
 
-    // Academy bot replies
+    // Business bot (Alfred Academy)
     const academyResponse = academyBot(text);
     if (academyResponse) {
       await sock.sendMessage(sender, { text: academyResponse });
     }
 
-    // GPT command
+    // GPT feature
     if (text.toLowerCase().startsWith("gpt ")) {
       const reply = await askChatGPT(text.slice(4));
       await sock.sendMessage(sender, { text: reply });
     }
   });
 
-  // 👥 Auto-welcome new group members
+  // 👥 Group welcome
   sock.ev.on("group-participants.update", async ({ id, participants, action }) => {
     for (let user of participants) {
       if (action === "add") {
@@ -73,4 +86,4 @@ export async function startBot() {
       }
     }
   });
-}
+  }
