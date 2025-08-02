@@ -4,16 +4,13 @@ import pkg from '@whiskeysockets/baileys';
 const {
   default: makeWASocket,
   useMultiFileAuthState,
-  fetchLatestBaileysVersion,
-  makeInMemoryStore
+  fetchLatestBaileysVersion
 } = pkg;
 
 import P from "pino";
 import { Boom } from "@hapi/boom";
 import { askChatGPT } from "./services/chatgpt.js";
 import { academyBot } from "./routes/academy.js";
-
-const store = makeInMemoryStore({ logger: P().child({ level: "silent", stream: "store" }) });
 
 export async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("auth");
@@ -27,10 +24,9 @@ export async function startBot() {
     browser: ["Alfred Bot", "Chrome", "1.0"]
   });
 
-  store.bind(sock.ev);
   sock.ev.on("creds.update", saveCreds);
 
-  // 🔄 Show connection info
+  // ✅ Show connected number
   sock.ev.on('connection.update', ({ connection }) => {
     if (connection === 'open') {
       console.log('✅ Connected as:', sock.user.id);
