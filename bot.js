@@ -1,4 +1,15 @@
-import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, makeInMemoryStore } from "@whiskeysockets/baileys";
+import pkg from '@whiskeysockets/baileys';
+const {
+  default: makeWASocket,
+  useMultiFileAuthState,
+  fetchLatestBaileysVersion,
+  makeInMemoryStore
+} = pkg;
+
+import P from "pino";
+import { Boom } from "@hapi/boom";
+import { askChatGPT } from "./services/chatgpt.js";
+import { academyBot } from "./routes/academy.js";
 import P from "pino";
 import { Boom } from "@hapi/boom";
 import { askChatGPT } from "./services/chatgpt.js";
